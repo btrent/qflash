@@ -1,0 +1,26 @@
+[
+    {
+	"type": "bool",
+	"title": "Sound",
+	"desc": "Play sounds",
+	"section": "root",
+	"key": "sound",
+	"true": "auto"
+    },
+    {
+	"type": "bool",
+	"title": "Vibrate",
+	"desc": "Haptic feedback",
+	"section": "root",
+	"key": "vibrate",
+	"true": "auto"
+    },
+    {
+	"type": "bool",
+	"title": "Screen always on",
+	"desc": "Disable screen auto off",
+	"section": "root",
+	"key": "keep_screen_on",
+	"true": "auto"
+    }
+]
