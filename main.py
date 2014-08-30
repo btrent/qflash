@@ -11,9 +11,6 @@ if (sys.platform == 'darwin'):
 import kivy
 from kivy.config import Config, ConfigParser
 
-#from kivy_util import ScrollableLabel
-#from kivy_util import ScrollableGrid
-
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.settings import Settings, SettingItem, SettingsPanel
