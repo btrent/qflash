@@ -228,13 +228,27 @@ class QFlash(App):
         ##################################
         # No more cards screen
         ##################################
-        no_more_layout = BoxLayout(size_hint=(1,1))
-        no_more_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf',
+        no_more_layout = BoxLayout(size_hint=(1,1), orientation='vertical')
+        no_more_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,.85),
                               font_size=64, halign="center", text="No more cards to review.")
         no_more_layout.add_widget(no_more_label)
+
+        no_more_btn_layout = BoxLayout(size_hint=(1,.15))
+
+        no_more_home_btn = Button(markup=True)
+        no_more_home_btn.text = "Home"
+        no_more_home_btn.bind(on_press=self.go_to_start_screen)
+        no_more_btn_layout.add_widget(no_more_home_btn)
+
+        no_more_exit_btn = Button(markup=True)
+        no_more_exit_btn.text = "Done"
+        no_more_exit_btn.bind(on_press=sys.exit)
+        no_more_btn_layout.add_widget(no_more_exit_btn)
+
+        no_more_layout.add_widget(no_more_btn_layout)
+
         no_more_screen = Screen(name='finished')
         no_more_screen.add_widget(no_more_layout)
-        #TODO P1: add buttons to get back to home or to exit
 
         # Add screens
         # sm = ScreenManager(transition=SlideTransition())
@@ -248,16 +262,16 @@ class QFlash(App):
 
         return sm
 
-    def go_to_main_screen(self):
+    def go_to_main_screen(self, screen=None):
         self.root.current = 'main'
 
-    def go_to_finished_screen(self):
+    def go_to_finished_screen(self, screen=None):
         self.root.current = 'finished'
 
-    def go_to_settings_screen(self):
+    def go_to_settings_screen(self, screen=None):
         self.root.current='settings'
 
-    def go_to_start_screen(self):
+    def go_to_start_screen(self, screen=None):
         self.root.current='start'
 
     def on_card_press(self, label, touch):
