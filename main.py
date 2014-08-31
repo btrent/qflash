@@ -3,6 +3,7 @@ import glob
 import os
 import pickle
 import random
+import shutil
 import sys
 import traceback
 from sets import Set
@@ -76,11 +77,35 @@ class QFlash(App):
         start_layout = BoxLayout(size_hint=(1,1), align="vertical")
 
         self.load_card_lists()
+
+        empty_cards_list = False
+
         if not self.card_list:
-            no_cards_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,1),
-                                   font_size=16, halign="center", text="No tsv files found in " + self.user_data_dir)
-            start_layout.add_widget(no_cards_label)
-        else:
+            empty_cards_list = True
+
+            # No decks on device, so let's try copying over our samples
+            # 
+            # This code is hideous because Android returns errors even when things succeed
+            # So we can't trust thrown exceptions!
+
+            sample_list = glob.glob("samples/*.tsv")
+            if sample_list:
+                for file in sample_list:
+                    try:
+                        shutil.copy2(file, self.user_data_dir)
+                    except:
+                        pass
+
+                    self.card_list.append(file[8:])
+
+                empty_cards_list = False
+            else:
+                empty_cards_list = True
+                no_cards_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,1),
+                                       font_size=16, halign="center", text="No tsv files found in " + self.user_data_dir)
+                start_layout.add_widget(no_cards_label)
+
+        if not empty_cards_list:
             list_adapter = ListAdapter(data=self.card_list, cls=ListItemButton, sorted_keys=[])
             list_adapter.bind(on_selection_change=self.select_cards)
             card_list = ListView(item_strings=self.card_list, adapter=list_adapter)
