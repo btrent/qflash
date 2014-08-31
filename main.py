@@ -9,6 +9,7 @@ if (sys.platform == 'darwin'):
     sys.platform = 'linux2'
     
 import kivy
+from kivy.base import EventLoop
 from kivy.config import Config, ConfigParser
 
 from kivy.uix.boxlayout import BoxLayout
@@ -61,7 +62,14 @@ class QFlash(App):
 
         return settings_panel # show the settings interface
 
-    def generate_start_screen(self):
+    def generate_start_screen(self, screen=None):
+        self.cards = []
+        self.card_list = []
+        self.current_card = None
+        self.valid_cards = []
+
+        screen.clear_widgets()
+
         start_layout = BoxLayout(size_hint=(1,1), align="vertical")
 
         self.load_card_lists()
@@ -75,7 +83,7 @@ class QFlash(App):
             card_list = ListView(item_strings=self.card_list, adapter=list_adapter)
             start_layout.add_widget(card_list)
 
-        return start_layout
+        screen.add_widget(start_layout)
 
     # Getting a list of all card lists on the filesystem
     def load_card_lists(self):
@@ -100,21 +108,16 @@ class QFlash(App):
                 self.load_cards(self.card_list[i])
 
         self.root.current = 'main'
-        self.card_refresh()
 
         return True
 
-    def card_refresh(self):
+    def card_refresh(self, event=None):
         card = self.select_new_card()
         if card is None:
             self.go_to_finished_screen()
         else:
             self.card_label.text = card.front
             self.card_label.text_size = self.card_label.size
-            #TODO P1: why does label size only work after first refresh?
-            #         and why doesn't valign=top work when label is first drawn?
-            #         Try to fix, or just force refresh initially?
-            print self.card_label.top
 
     # Valid cards are cards that are ready to be shown
     def update_valid_cards(self):
@@ -143,7 +146,14 @@ class QFlash(App):
 
                 return True
 
+        EventLoop.window.bind(on_keyboard=self.hook_keyboard)
+
         return True
+
+    def hook_keyboard(self, window, key, *largs):
+        if (key == 27):
+            self.go_to_start_screen()
+            return True
 
     def build_config(self, config):
         config.setdefaults('root', {
@@ -161,7 +171,19 @@ class QFlash(App):
             Config.write()
 
         ##################################
-        card_layout = BoxLayout(orientation='vertical',size_hint=(1,.85))
+
+        platform = kivy.utils.platform()
+
+        ##################################
+        # Start screen
+        ##################################
+        start_screen = Screen(name='start')
+        start_screen.bind(on_pre_enter=self.generate_start_screen)
+        
+        ##################################
+        # Card screen
+        ##################################
+        card_layout = BoxLayout(orientation='vertical',size_hint=(1,.95))
         card_widget = BoxLayout(size_hint=(1,.85))
         card_buttons_widget = BoxLayout(size_hint=(1,.15))
 
@@ -193,16 +215,10 @@ class QFlash(App):
         card_layout.add_widget(card_widget)
         card_layout.add_widget(card_buttons_widget)
 
-        platform = kivy.utils.platform()
         card_screen = Screen(name='main')
         card_screen.add_widget(card_layout)
+        card_screen.bind(on_enter=self.card_refresh)
 
-        ##################################
-        # Start screen
-        ##################################
-        start_screen = Screen(name='start')
-        start_screen.add_widget(self.generate_start_screen())
-        
         ##################################
         # Settings screen
         ##################################
@@ -240,6 +256,9 @@ class QFlash(App):
 
     def go_to_settings_screen(self):
         self.root.current='settings'
+
+    def go_to_start_screen(self):
+        self.root.current='start'
 
     def on_card_press(self, label, touch):
         if (label.text == self.current_card.front):
