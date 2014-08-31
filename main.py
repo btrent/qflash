@@ -1,6 +1,7 @@
 import datetime
 import glob
 import os
+import pickle
 import random
 import sys
 import traceback
@@ -46,6 +47,7 @@ class Card:
         self.valid_date = datetime.datetime.now()
 
 class QFlash(App):
+    card_filename = None
     cards = []
     card_label = None
     card_list = []
@@ -63,6 +65,7 @@ class QFlash(App):
         return settings_panel # show the settings interface
 
     def generate_start_screen(self, screen=None):
+        self.card_filename = None
         self.cards = []
         self.card_list = []
         self.current_card = None
@@ -101,6 +104,9 @@ class QFlash(App):
                     tmp[i] = tmp[i].replace("<br>", "\n")
                 self.cards.append(Card(tmp[0], tmp[1]))
 
+        self.card_filename = filename
+        self.load_state()
+
     # User has selected a card list
     def select_cards(self, adapter):
         for i in range(0, len(self.card_list)):
@@ -114,7 +120,14 @@ class QFlash(App):
     def card_refresh(self, event=None):
         card = self.select_new_card()
         if card is None:
-            self.go_to_finished_screen()
+            # Hack!
+            # I have no idea why this works
+            # card_refresh should only be called on_enter (onload) for main screen
+            # But it is being called just barely before load is complete
+            # So if we navigate away before the screen is ready, the app crashes
+            # 
+            # This stops that
+            Clock.schedule_once(self.go_to_finished_screen)
         else:
             self.card_label.text = card.front
             self.card_label.text_size = self.card_label.size
@@ -228,11 +241,11 @@ class QFlash(App):
         ##################################
         # No more cards screen
         ##################################
+
         no_more_layout = BoxLayout(size_hint=(1,1), orientation='vertical')
         no_more_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,.85),
                               font_size=64, halign="center", text="No more cards to review.")
         no_more_layout.add_widget(no_more_label)
-
         no_more_btn_layout = BoxLayout(size_hint=(1,.15))
 
         no_more_home_btn = Button(markup=True)
@@ -291,12 +304,24 @@ class QFlash(App):
             'never': (lambda : self.delay_card(-1))
         }[btn.text]()
 
-        self.save_data()
+        self.save_state()
         self.card_refresh()
 
-    def save_data(self):
-        #TODO P0: implement this
-        print "Saving data not implemented!"
+    def save_state(self):
+        save_filename = os.path.join(self.user_data_dir, self.card_filename + "_state.dat")
+        f = open(save_filename, 'w')
+        pickle.dump(self.cards, f)
+
+    def load_state(self):
+        load_filename = os.path.join(self.user_data_dir, self.card_filename + "_state.dat")
+        try:
+            f = open(load_filename)
+            unpickler = pickle.Unpickler(f)
+            self.cards = unpickler.load()
+        except:
+            # TODO P3: if not file not found, log it
+            # new cards, hopefully
+            pass
 
     def delay_card(self, num_days):
         if (num_days == -1):
