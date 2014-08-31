@@ -5,6 +5,7 @@ import pickle
 import random
 import sys
 import traceback
+from sets import Set
 
 if (sys.platform == 'darwin'):
     sys.platform = 'linux2'
@@ -29,10 +30,6 @@ from kivy.uix.label import Label
 #from kivy.graphics import Color, Line, Rectangle
 from kivy.uix.button import Button
 
-class CardList():
-    name = ""
-    location = ""
-
 class SettingsScreen(Screen):
     pass
 
@@ -45,6 +42,9 @@ class Card:
         self.front = f
         self.back = b
         self.valid_date = datetime.datetime.now()
+
+    def get_key(self):
+        return self.front + "_" + self.back
 
 class QFlash(App):
     card_filename = None
@@ -317,10 +317,35 @@ class QFlash(App):
         try:
             f = open(load_filename)
             unpickler = pickle.Unpickler(f)
-            self.cards = unpickler.load()
+            saved_cards = unpickler.load()
+
+            # We can't just load the saved state into self.cards in case 
+            # new cards were added or cards were removed (list was updated)
+            # TODO P3: optimize this if necessary (test with big lists)
+            saved_card_keys = []
+            for card in saved_cards:
+                saved_card_keys.append(card.get_key())
+            fresh_card_keys = []
+            for card in self.cards:
+                fresh_card_keys.append(card.get_key())
+
+            fresh_card_keys_set = Set(fresh_card_keys)
+            saved_card_keys_set = Set(saved_card_keys)
+            new_keys = fresh_card_keys_set - saved_card_keys_set
+            removed_keys = saved_card_keys_set - fresh_card_keys_set
+
+            tmp_cards = []
+            for card in saved_cards:
+                if (card.get_key() not in removed_keys):
+                    tmp_cards.append(card)
+            for card in self.cards:
+                if (card.get_key() in new_keys):
+                    tmp_cards.append(card)
+
+            self.cards = tmp_cards
+
         except:
-            # TODO P3: if not file not found, log it
-            # new cards, hopefully
+            # TODO P3: if the exception is not "file not found", log it
             pass
 
     def delay_card(self, num_days):
