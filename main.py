@@ -287,6 +287,10 @@ class QFlash(App):
     def go_to_start_screen(self, screen=None):
         self.root.current='start'
 
+    # This override replaces the kivy settings screen with the qflash one
+    #def open_settings(self):
+    #    self.go_to_settings_screen()
+
     def on_card_press(self, label, touch):
         if (label.text == self.current_card.front):
             label.text = self.current_card.back
