@@ -1,5 +1,6 @@
 import datetime
 import glob
+import logging
 import os
 import pickle
 import random
@@ -8,14 +9,23 @@ import sys
 import traceback
 from sets import Set
 
+# Unfortunately, this stuff has to go here
 if (sys.platform == 'darwin'):
     sys.platform = 'linux2'
+
+formatter = logging.Formatter("[%(asctime)s.%(msecs)03d][%(levelname)s][%(message)s]", "%H:%M:%S")
+console = logging.StreamHandler() 
+console.setFormatter(formatter)
+sys._kivy_logging_handler = console
     
+# Back to your regularly scheduled imports
 import kivy
 from kivy.base import EventLoop
 from kivy.config import Config, ConfigParser
 
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.filechooser import FileChooserListView
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.settings import Settings, SettingItem, SettingsPanel
 from kivy.uix.screenmanager import SlideTransition, FadeTransition, NoTransition
@@ -27,6 +37,7 @@ from kivy.adapters.listadapter import ListAdapter
 from kivy.uix.listview import ListItemButton, ListView
 
 from kivy.app import App
+from kivy.logger import Logger as Log
 from kivy.uix.label import Label
 #from kivy.graphics import Color, Line, Rectangle
 from kivy.uix.button import Button
@@ -53,6 +64,7 @@ class QFlash(App):
     card_label = None
     card_list = []
     current_card = None
+    import_msg_label = None
     valid_cards = []
 
     def generate_settings(self):
@@ -66,6 +78,11 @@ class QFlash(App):
         return settings_panel # show the settings interface
 
     def generate_start_screen(self, screen=None):
+        # If we're going back to home after a session
+        # TODO P2: make this more efficient (state last saved flag, for example)
+        if self.cards:
+            self.save_state()
+
         self.card_filename = None
         self.cards = []
         self.card_list = []
@@ -74,7 +91,7 @@ class QFlash(App):
 
         screen.clear_widgets()
 
-        start_layout = BoxLayout(size_hint=(1,1), align="vertical")
+        start_layout = GridLayout(size_hint=(1,1), cols=1, rows=2)
 
         self.load_card_lists()
 
@@ -101,17 +118,42 @@ class QFlash(App):
                 empty_cards_list = False
             else:
                 empty_cards_list = True
-                no_cards_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,1),
+                no_cards_label = Label(markup=True, pos=(0,0), font_name='img/ipag.ttf', size_hint=(1,.85),
                                        font_size=16, halign="center", text="No tsv files found in " + self.user_data_dir)
                 start_layout.add_widget(no_cards_label)
 
         if not empty_cards_list:
-            list_adapter = ListAdapter(data=self.card_list, cls=ListItemButton, sorted_keys=[])
+            list_adapter = ListAdapter(data=self.card_list, cls=ListItemButton, 
+                                       args_converter=(lambda row_index, rec: 
+                                                       {'text': rec,'height':75}), 
+                                       sorted_keys=[])
             list_adapter.bind(on_selection_change=self.select_cards)
-            card_list = ListView(item_strings=self.card_list, adapter=list_adapter)
+            card_list = ListView(item_strings=self.card_list, adapter=list_adapter, size_hint=(1,.85))
             start_layout.add_widget(card_list)
 
+        file_chooser_btn = Button(text='Import List', size_hint=(1,.15))
+        file_chooser_btn.bind(on_release=self.go_to_import_screen)
+        start_layout.add_widget(file_chooser_btn)
+
         screen.add_widget(start_layout)
+
+    def import_list(self, file_chooser_instance, selection, event=None):
+        if (len(selection) > 1):
+            self.import_msg_label.text = "Please select one file at a time."
+            return
+
+        filename = selection[0]
+
+        if (filename[-4:] != ".tsv"):
+            self.import_msg_label.text = "Please select a .tsv file (tab separated values)."
+            return
+
+        try:
+            shutil.copy2(filename, self.user_data_dir)
+        except:
+            pass
+
+        self.go_to_start_screen()
 
     # Getting a list of all card lists on the filesystem
     def load_card_lists(self):
@@ -143,6 +185,7 @@ class QFlash(App):
         return True
 
     def card_refresh(self, event=None):
+        Log.debug("refreshing card")
         card = self.select_new_card()
         if card is None:
             # Hack!
@@ -156,6 +199,8 @@ class QFlash(App):
         else:
             self.card_label.text = card.front
             self.card_label.text_size = self.card_label.size
+
+        Log.debug("card refreshed")
 
     # Valid cards are cards that are ready to be shown
     def update_valid_cards(self):
@@ -186,6 +231,13 @@ class QFlash(App):
 
         EventLoop.window.bind(on_keyboard=self.hook_keyboard)
 
+        return True
+
+    def on_pause(self):
+        self.save_state()
+        return True
+
+    def on_resume(self):
         return True
 
     def hook_keyboard(self, window, key, *largs):
@@ -225,7 +277,7 @@ class QFlash(App):
         card_widget = BoxLayout(size_hint=(1,.85))
         card_buttons_widget = BoxLayout(size_hint=(1,.15))
 
-        self.card_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf',
+        self.card_label = Label(markup=True, pos=(0,0), font_name='img/ipag.ttf',
                                 font_size=64, halign="center", valign="top")
         self.card_label.bind(on_touch_down=self.on_card_press)
         card_widget.add_widget(self.card_label)
@@ -268,7 +320,7 @@ class QFlash(App):
         ##################################
 
         no_more_layout = BoxLayout(size_hint=(1,1), orientation='vertical')
-        no_more_label = Label(markup=True, pos=(0,0), font_name='img/TakaoPMincho.ttf', size_hint=(1,.85),
+        no_more_label = Label(markup=True, pos=(0,0), font_name='img/ipag.ttf', size_hint=(1,.85),
                               font_size=64, halign="center", text="No more cards to review.")
         no_more_layout.add_widget(no_more_label)
         no_more_btn_layout = BoxLayout(size_hint=(1,.15))
@@ -288,6 +340,22 @@ class QFlash(App):
         no_more_screen = Screen(name='finished')
         no_more_screen.add_widget(no_more_layout)
 
+        import_layout = BoxLayout(size_hint=(1,1), orientation='vertical')
+        self.import_msg_label = Label(markup=True, pos=(0,0), font_name = 'img/ipag.ttf', size_hint=(1,.1),
+                                      font_size=24, halign='left', text='Please select a .tsv file.')
+        import_layout.add_widget(self.import_msg_label)        
+
+        #TODO P3: Can we increase text size?
+        import_file_chooser = FileChooserListView(on_submit=self.import_list, path='/')
+        import_file_chooser.bind(selection=self.import_list)
+        import_layout.add_widget(import_file_chooser)
+
+        import_cancel_button = Button(text="Cancel", on_press=self.go_to_start_screen, size_hint=(1,.15))
+        import_layout.add_widget(import_cancel_button)
+
+        import_screen = Screen(name='import')
+        import_screen.add_widget(import_layout)
+
         # Add screens
         # sm = ScreenManager(transition=SlideTransition())
         sm = ScreenManager(transition=FadeTransition())
@@ -295,6 +363,7 @@ class QFlash(App):
         sm.add_widget(card_screen)
         sm.add_widget(settings_screen)
         sm.add_widget(no_more_screen)
+        sm.add_widget(import_screen)
 
         self.on_load(1)
 
@@ -312,6 +381,9 @@ class QFlash(App):
     def go_to_start_screen(self, screen=None):
         self.root.current='start'
 
+    def go_to_import_screen(self, screen=None):
+        self.root.current = 'import'
+
     # This override replaces the kivy settings screen with the qflash one
     #def open_settings(self):
     #    self.go_to_settings_screen()
@@ -325,6 +397,7 @@ class QFlash(App):
         label.text_size = label.size
 
     def process_card_btn(self, btn):
+        Log.debug("processing card")
         # switch
         {
             'again': (lambda : self.delay_card(0)),
@@ -333,13 +406,20 @@ class QFlash(App):
             'never': (lambda : self.delay_card(-1))
         }[btn.text]()
 
-        self.save_state()
+        Log.debug("card processed")
+        if (self.is_desktop()):
+            self.save_state()
         self.card_refresh()
 
     def save_state(self):
+        Log.debug("saving state")
+        if not self.cards:
+            return True
+
         save_filename = os.path.join(self.user_data_dir, self.card_filename + "_state.dat")
         f = open(save_filename, 'w')
         pickle.dump(self.cards, f)
+        Log.debug("state saved")
 
     def load_state(self):
         load_filename = os.path.join(self.user_data_dir, self.card_filename + "_state.dat")

@@ -31,7 +31,7 @@ requirements = kivy
 #orientation = all
 orientation = portrait
 
-#presplash.filename = /source/github/knave/img/splash.png
+presplash.filename = /source/github/qflash/img/lightbulb_orb.png
 icon.filename = /source/github/qflash/img/lightbulb_orb.png
 
 fullscreen = 0
